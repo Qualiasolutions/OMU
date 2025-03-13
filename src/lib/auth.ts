@@ -9,11 +9,14 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
     error: "/login",
   },
+  debug: process.env.NODE_ENV === "development",
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -27,34 +30,42 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) {
+          console.error("Missing email or password");
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email,
+            },
+          });
 
-        if (!user || !user.password) {
+          if (!user || !user.password) {
+            console.error("User not found or missing password");
+            return null;
+          }
+
+          const isPasswordValid = await compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.error("Invalid password");
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          };
+        } catch (error) {
+          console.error("Error in authorize function:", error);
           return null;
         }
-
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        };
       },
     }),
   ],
@@ -70,27 +81,33 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async jwt({ token, user }) {
-      if (token.email) {
-        const dbUser = await prisma.user.findFirst({
-          where: {
-            email: token.email,
-          },
-        });
+      try {
+        if (token.email) {
+          const dbUser = await prisma.user.findFirst({
+            where: {
+              email: token.email,
+            },
+          });
 
-        if (dbUser) {
-          return {
-            id: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            picture: dbUser.image,
-          };
+          if (dbUser) {
+            return {
+              id: dbUser.id,
+              name: dbUser.name,
+              email: dbUser.email,
+              picture: dbUser.image,
+            };
+          }
         }
+        
+        if (user) {
+          token.id = user.id;
+        }
+        
+        return token;
+      } catch (error) {
+        console.error("Error in JWT callback:", error);
+        return token;
       }
-      
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
     },
   },
 }; 
