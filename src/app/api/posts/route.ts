@@ -35,26 +35,44 @@ export async function POST(req: Request) {
       );
     }
 
+    // If we have scheduledFor but no socialAccountId, we can't create a scheduled post
+    if (validatedData.scheduledFor && !validatedData.socialAccountId) {
+      return NextResponse.json(
+        { error: 'Social account is required for scheduled posts' },
+        { status: 400 }
+      );
+    }
+
     const post = await prisma.post.create({
       data: {
         content: validatedData.content,
         mediaUrls: validatedData.mediaUrls || [],
-        socialAccountId: validatedData.socialAccountId,
         status: 'DRAFT',
-        userId: user.id,
-        ...(validatedData.scheduledFor && {
+        user: {
+          connect: { id: user.id }
+        },
+        ...(validatedData.socialAccountId && {
+          socialAccount: {
+            connect: { id: validatedData.socialAccountId }
+          }
+        }),
+        ...(validatedData.scheduledFor && validatedData.socialAccountId ? {
           scheduledPost: {
             create: {
               scheduledFor: new Date(validatedData.scheduledFor),
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              userId: user.id,
-              socialAccountId: validatedData.socialAccountId!,
+              status: 'PENDING',
               content: validatedData.content,
               mediaUrls: validatedData.mediaUrls || [],
-              status: 'PENDING'
+              user: {
+                connect: { id: user.id }
+              },
+              socialAccount: {
+                connect: { id: validatedData.socialAccountId }
+              }
             }
           }
-        })
+        } : {})
       },
       include: {
         socialAccount: true,
