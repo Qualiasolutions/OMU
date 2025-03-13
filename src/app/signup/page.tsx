@@ -5,6 +5,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import axios from "axios";
+import { z } from "zod";
+
+// Form validation schema
+const signupSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+  terms: z.boolean().refine(val => val === true, {
+    message: "You must accept the terms and conditions"
+  })
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const router = useRouter();
@@ -12,21 +29,41 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setFormErrors({});
     
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      return;
+    // Validate form data
+    try {
+      signupSchema.parse({
+        name,
+        email,
+        password,
+        confirmPassword,
+        terms: termsAccepted
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        const errors: Record<string, string> = {};
+        err.errors.forEach((error) => {
+          if (error.path) {
+            const fieldName = error.path[0].toString();
+            errors[fieldName] = error.message;
+          }
+        });
+        
+        setFormErrors(errors);
+        
+        // Set main error message to first validation error
+        setError(err.errors[0].message);
+        return;
+      }
     }
     
     setIsLoading(true);
@@ -48,13 +85,15 @@ export default function SignupPage() {
       if (result?.error) {
         setError("Registration successful, but could not sign in automatically. Please sign in manually.");
         setIsLoading(false);
-        router.push("/login");
+        router.push("/login?registered=true");
         return;
       }
 
       router.push("/dashboard");
     } catch (error: any) {
-      if (error.response?.data?.message) {
+      if (error.response?.status === 409) {
+        setError("An account with this email already exists. Please sign in instead.");
+      } else if (error.response?.data?.message) {
         setError(error.response.data.message);
       } else {
         setError("An unexpected error occurred. Please try again.");
@@ -106,9 +145,12 @@ export default function SignupPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="input"
+                className={`input ${formErrors.name ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                 placeholder="Enter your full name"
               />
+              {formErrors.name && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
+              )}
             </div>
             
             <div>
@@ -123,9 +165,12 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input"
+                className={`input ${formErrors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                 placeholder="Enter your email"
               />
+              {formErrors.email && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+              )}
             </div>
 
             <div>
@@ -140,9 +185,12 @@ export default function SignupPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input"
+                className={`input ${formErrors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                 placeholder="Create a password (min. 8 characters)"
               />
+              {formErrors.password && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+              )}
             </div>
             
             <div>
@@ -157,9 +205,12 @@ export default function SignupPage() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input"
+                className={`input ${formErrors.confirmPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                 placeholder="Confirm your password"
               />
+              {formErrors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
+              )}
             </div>
 
             <div className="flex items-center">
@@ -168,9 +219,11 @@ export default function SignupPage() {
                 name="terms"
                 type="checkbox"
                 required
-                className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className={`h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded ${formErrors.terms ? 'border-red-300' : ''}`}
               />
-              <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="terms" className={`ml-2 block text-sm text-gray-700 ${formErrors.terms ? 'text-red-600' : ''}`}>
                 I agree to the{" "}
                 <Link
                   href="/terms"
@@ -187,6 +240,9 @@ export default function SignupPage() {
                 </Link>
               </label>
             </div>
+            {formErrors.terms && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.terms}</p>
+            )}
 
             <div>
               <button
@@ -213,6 +269,7 @@ export default function SignupPage() {
 
             <div className="mt-6">
               <button
+                type="button"
                 onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
                 className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
