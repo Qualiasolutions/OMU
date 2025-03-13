@@ -9,10 +9,10 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 
 // Mock stats data - would come from API in production
 const stats = [
-  { id: 1, name: 'Total Posts', stat: '127', icon: DocumentTextIcon, change: '12%', changeType: 'increase' },
-  { id: 2, name: 'Media Files', stat: '356', icon: PhotoIcon, change: '2.5%', changeType: 'increase' },
-  { id: 3, name: 'Audience', stat: '2,340', icon: UserGroupIcon, change: '4.1%', changeType: 'increase' },
-  { id: 4, name: 'Engagement', stat: '24.57%', icon: ChartBarIcon, change: '3.2%', changeType: 'decrease' },
+  { id: 1, name: "Total Posts", stat: "127", icon: DocumentTextIcon, change: "12%", changeType: "increase" as const },
+  { id: 2, name: "Media Files", stat: "356", icon: PhotoIcon, change: "2.5%", changeType: "increase" as const },
+  { id: 3, name: "Audience", stat: "2,340", icon: UserGroupIcon, change: "4.1%", changeType: "increase" as const },
+  { id: 4, name: "Engagement", stat: "24.57%", icon: ChartBarIcon, change: "3.2%", changeType: "decrease" as const },
 ];
 
 export default function Dashboard() {

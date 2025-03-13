@@ -8,7 +8,7 @@ type DashboardCardProps = {
     stat: string;
     icon: React.ComponentType<React.ComponentProps<"svg">>;
     change: string;
-    changeType: 'increase' | 'decrease';
+    changeType: "increase" | "decrease";
   };
 };
 
@@ -25,11 +25,11 @@ export default function DashboardCard({ item }: DashboardCardProps) {
         <p className="text-2xl font-semibold text-gray-900">{item.stat}</p>
         <p
           className={classNames(
-            item.changeType === 'increase' ? 'text-green-600' : 'text-red-600',
-            'ml-2 flex items-baseline text-sm font-semibold'
+            item.changeType === "increase" ? "text-green-600" : "text-red-600",
+            "ml-2 flex items-baseline text-sm font-semibold"
           )}
         >
-          {item.changeType === 'increase' ? (
+          {item.changeType === "increase" ? (
             <ArrowUpIcon className="self-center flex-shrink-0 h-5 w-5 text-green-500" aria-hidden="true" />
           ) : (
             <ArrowDownIcon className="self-center flex-shrink-0 h-5 w-5 text-red-500" aria-hidden="true" />
