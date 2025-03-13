@@ -8,27 +8,6 @@ const prismaClientSingleton = () => {
   return new PrismaClient({
     log: ['error', 'warn'],
     errorFormat: 'pretty',
-  }).$extends({
-    query: {
-      async $allOperations({ 
-        operation, 
-        model, 
-        args, 
-        query 
-      }: { 
-        operation: string; 
-        model: string; 
-        args: unknown; 
-        query: (args: unknown) => Promise<unknown>; 
-      }) {
-        try {
-          return await query(args);
-        } catch (error: unknown) {
-          console.error(`Prisma Error in ${model}.${operation}:`, error);
-          throw error;
-        }
-      },
-    },
   });
 };
 
