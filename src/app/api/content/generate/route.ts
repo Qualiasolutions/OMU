@@ -13,6 +13,9 @@ const contentGenerationSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // Check for OpenAI API key in environment
+    const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
+    
     const body = await req.json();
     const validatedData = contentGenerationSchema.parse(body);
 
@@ -25,6 +28,14 @@ export async function POST(req: Request) {
       additionalContext: validatedData.additionalContext,
     });
 
+    // Add a warning if using fallback generation
+    if (!hasApiKey) {
+      return NextResponse.json({
+        ...generatedContent,
+        _warning: "Using fallback template generation. For better results, configure an OpenAI API key in environment variables."
+      });
+    }
+
     return NextResponse.json(generatedContent);
   } catch (error) {
     console.error('Content generation error:', error);
@@ -33,6 +44,19 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.errors },
         { status: 400 }
+      );
+    }
+    
+    // Check if error is related to OpenAI API key
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    if (errorMessage.includes('API key')) {
+      return NextResponse.json(
+        { 
+          error: 'OpenAI API configuration error',
+          message: 'The OpenAI API key is missing or invalid. Using fallback content generation.',
+          details: errorMessage
+        },
+        { status: 500 }
       );
     }
     
