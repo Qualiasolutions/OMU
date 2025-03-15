@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+
+// Valid post status values from the schema
+const POST_STATUS_VALUES = ['DRAFT', 'SCHEDULED', 'PUBLISHED', 'FAILED'] as const;
+type PostStatus = typeof POST_STATUS_VALUES[number];
 
 const postSchema = z.object({
   content: z.string().min(1),
@@ -14,7 +19,7 @@ const updatePostSchema = z.object({
   id: z.string(),
   content: z.string().min(1).optional(),
   mediaUrls: z.array(z.string().url()).optional(),
-  status: z.enum(['DRAFT', 'SCHEDULED', 'PUBLISHED', 'FAILED']).optional(),
+  status: z.enum(POST_STATUS_VALUES).optional(),
 });
 
 // Get all posts for the current user
@@ -30,7 +35,7 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
+    const statusParam = searchParams.get('status');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
@@ -46,10 +51,16 @@ export async function GET(req: Request) {
       );
     }
 
-    const where = {
-      userId: user.id,
-      ...(status && { status: status.toUpperCase() })
-    };
+    // Create the base where clause
+    const where: any = { userId: user.id };
+    
+    // Only add status filter if it's a valid enum value
+    if (statusParam) {
+      const upperStatus = statusParam.toUpperCase();
+      if (POST_STATUS_VALUES.includes(upperStatus as PostStatus)) {
+        where.status = upperStatus;
+      }
+    }
 
     const [posts, total] = await Promise.all([
       prisma.post.findMany({
