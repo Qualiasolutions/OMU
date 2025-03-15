@@ -33,6 +33,45 @@ export interface GeneratedContent {
   suggestedImagePrompt?: string;
 }
 
+export interface GeneratedImage {
+  imageUrl: string;
+  prompt: string;
+}
+
+// Function to generate images using DALL-E
+export async function generateImage(prompt: string): Promise<GeneratedImage> {
+  try {
+    // Check if OpenAI client is available
+    if (!openai || !isApiKeyAvailable) {
+      throw new Error('OpenAI API key is missing');
+    }
+    
+    // Generate image with DALL-E 3
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+      response_format: "url",
+    });
+    
+    const imageUrl = response.data[0]?.url;
+    
+    if (!imageUrl) {
+      throw new Error("Failed to generate image");
+    }
+    
+    return {
+      imageUrl,
+      prompt,
+    };
+  } catch (error) {
+    console.error("Error generating image:", error);
+    throw error;
+  }
+}
+
 // Fallback function to use when OpenAI isn't available
 function generateFallbackContent(params: ContentGenerationParams): GeneratedContent {
   const { topic, platform, tone = 'professional' } = params;

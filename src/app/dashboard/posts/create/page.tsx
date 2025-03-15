@@ -2,12 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface GeneratedContent {
   mainContent: string;
   hashtags: string[];
   suggestedImagePrompt?: string;
   _warning?: string;
+}
+
+interface GeneratedImage {
+  imageUrl: string;
+  prompt: string;
 }
 
 export default function CreatePost() {
@@ -32,6 +38,12 @@ export default function CreatePost() {
   const [activeTab, setActiveTab] = useState<'generate' | 'review'>('generate');
 
   const [apiWarning, setApiWarning] = useState<string | null>(null);
+  
+  // Image generation states
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
+  const [customImagePrompt, setCustomImagePrompt] = useState('');
 
   const createPost = async (content: string) => {
     setIsSubmitting(true);
@@ -53,8 +65,7 @@ export default function CreatePost() {
       const data = await response.json();
 
       if (!response.ok && !data._mockData) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create post');
+        throw new Error(data.error || 'Failed to create post');
       }
 
       // Successfully created post
@@ -88,7 +99,7 @@ export default function CreatePost() {
     }
   };
 
-  const handleGenerate = async (e: React.FormEvent) => {
+  const generateContent = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
     setError(null);
@@ -145,6 +156,45 @@ export default function CreatePost() {
     }
   };
 
+  // Function to generate image using the suggested prompt or custom prompt
+  const generateImageFromPrompt = async (prompt: string = '') => {
+    if (!prompt && !generatedContent?.suggestedImagePrompt && !customImagePrompt) {
+      setImageError('Please provide an image prompt or generate content first');
+      return;
+    }
+    
+    // Use custom prompt, or fallback to suggested prompt from content generation
+    const finalPrompt = prompt || customImagePrompt || generatedContent?.suggestedImagePrompt || '';
+    
+    setIsGeneratingImage(true);
+    setImageError(null);
+    
+    try {
+      const response = await fetch('/api/content/image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate image');
+      }
+      
+      const data = await response.json();
+      setGeneratedImage(data);
+      setMediaUrl(data.imageUrl);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'Failed to generate image');
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await createPost(postContent);
@@ -192,7 +242,7 @@ export default function CreatePost() {
           )}
 
           {activeTab === 'generate' ? (
-        <form onSubmit={handleGenerate} className="space-y-6">
+        <form onSubmit={generateContent} className="space-y-6">
           <div>
             <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
               Topic or Subject *
@@ -325,15 +375,57 @@ export default function CreatePost() {
             <div className="mb-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
               <h3 className="text-sm font-medium text-indigo-800 mb-2">AI Generated Suggestion</h3>
               {generatedContent.suggestedImagePrompt && (
-                <p className="text-xs text-indigo-600 mb-2">
-                  <span className="font-medium">Image suggestion:</span> {generatedContent.suggestedImagePrompt}
-                </p>
+                <div className="text-xs text-indigo-600 mb-2">
+                  <p className="font-medium mb-1">Image suggestion:</p>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <div className="flex-grow">
+                      <input
+                        type="text"
+                        value={customImagePrompt || generatedContent.suggestedImagePrompt}
+                        onChange={(e) => setCustomImagePrompt(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-md"
+                        placeholder="Customize the image prompt"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => generateImageFromPrompt()}
+                      disabled={isGeneratingImage}
+                      className={`px-3 py-2 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 ${
+                        isGeneratingImage ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      {isGeneratingImage ? 'Generating...' : 'Generate Image'}
+                    </button>
+                  </div>
+                </div>
               )}
               {apiWarning && (
                 <p className="text-xs text-orange-600 mt-2">
                   <span className="font-medium">Note:</span> Using template-based generation. For more personalized content, please configure an OpenAI API key.
                 </p>
               )}
+            </div>
+          )}
+          
+          {imageError && (
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm">
+              <p>{imageError}</p>
+            </div>
+          )}
+          
+          {generatedImage && (
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-800 mb-2">Generated Image</h3>
+              <div className="relative w-full h-48 md:h-64 bg-gray-100 rounded-md overflow-hidden">
+                <Image
+                  src={generatedImage.imageUrl}
+                  alt="Generated image"
+                  fill
+                  style={{ objectFit: 'contain' }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Prompt: {generatedImage.prompt}</p>
             </div>
           )}
           
@@ -356,7 +448,7 @@ export default function CreatePost() {
               Media URL
             </label>
             <input
-              type="url"
+              type="text"
               id="mediaUrl"
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
               placeholder="Enter image or video URL"
