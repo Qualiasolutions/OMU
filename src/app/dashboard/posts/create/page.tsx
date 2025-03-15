@@ -50,23 +50,37 @@ export default function CreatePost() {
         }),
       });
 
-      if (!response.ok) {
+      const data = await response.json();
+
+      if (!response.ok && !data._mockData) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create post');
       }
 
       // Successfully created post
-      const postData = await response.json();
+      // Check if it's a mock post due to database issues
+      if (data._mockData) {
+        alert('Post created in mock mode due to database connection issues. Your content has been generated but may not be saved permanently.');
+      } else {
+        alert('Post created successfully!');
+      }
       
-      // Show success message and redirect to posts list after a short delay
-      setError(null);
-      alert('Post created successfully!');
       setTimeout(() => {
         router.push('/dashboard/posts');
       }, 1000);
       
       return true;
     } catch (err) {
+      // Handle specific database connection errors
+      if (err instanceof Error && 
+          (err.message.includes('database') || 
+           err.message.includes('connection') || 
+           err.message.includes('ECONNREFUSED'))) {
+        setError('Database connection error. Your post is generated but couldn\'t be saved.');
+        alert('Warning: Database connection issues detected. Your content was generated but may not be saved.');
+        return true; // Return true to continue with the flow even with DB errors
+      }
+      
       setError(err instanceof Error ? err.message : 'Failed to create post');
       return false;
     } finally {
