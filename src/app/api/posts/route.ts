@@ -8,6 +8,10 @@ import { Prisma } from '@prisma/client';
 const POST_STATUS_VALUES = ['DRAFT', 'SCHEDULED', 'PUBLISHED', 'FAILED'] as const;
 type PostStatus = typeof POST_STATUS_VALUES[number];
 
+// Valid schedule status values from the schema
+const SCHEDULE_STATUS_VALUES = ['PENDING', 'POSTED', 'FAILED', 'CANCELLED'] as const;
+type ScheduleStatus = typeof SCHEDULE_STATUS_VALUES[number];
+
 const postSchema = z.object({
   content: z.string().min(1),
   mediaUrls: z.array(z.string().url()).optional(),
@@ -152,7 +156,7 @@ export async function POST(req: Request) {
             create: {
               scheduledFor: new Date(validatedData.scheduledFor),
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              status: 'PENDING',
+              status: 'PENDING' as ScheduleStatus,
               content: validatedData.content,
               mediaUrls: validatedData.mediaUrls || [],
               user: {
