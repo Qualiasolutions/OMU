@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     const createData = {
       content: validatedData.content,
       mediaUrls: validatedData.mediaUrls || [],
-      status: 'DRAFT',
+      status: 'DRAFT' as PostStatus,
       user: {
         connect: { id: user.id }
       },
@@ -149,9 +149,20 @@ export async function POST(req: Request) {
 
     // Add scheduled post if needed
     if (validatedData.scheduledFor && validatedData.socialAccountId) {
+      // Create separate objects for post and scheduled post to avoid type errors
       const post = await prisma.post.create({
         data: {
-          ...createData,
+          content: validatedData.content,
+          mediaUrls: validatedData.mediaUrls || [],
+          status: 'DRAFT' as PostStatus,
+          user: {
+            connect: { id: user.id }
+          },
+          ...(validatedData.socialAccountId && {
+            socialAccount: {
+              connect: { id: validatedData.socialAccountId }
+            }
+          }),
           scheduledPost: {
             create: {
               scheduledFor: new Date(validatedData.scheduledFor),
