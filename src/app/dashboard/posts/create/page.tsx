@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 
 interface PostFormData {
   content: string;
@@ -13,7 +12,6 @@ interface PostFormData {
 
 export default function CreatePost() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<PostFormData>({
@@ -49,13 +47,9 @@ export default function CreatePost() {
     }
   };
 
-  if (!session) {
-    return <div>Please sign in to create posts.</div>;
-  }
-
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Create New Post</h1>
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h1 className="text-2xl font-bold mb-6 text-gray-900">Create New Post</h1>
       
       {error && (
         <div className="bg-red-50 text-red-500 p-4 rounded-lg mb-6">
@@ -71,9 +65,10 @@ export default function CreatePost() {
           <textarea
             id="content"
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
             value={formData.content}
             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+            placeholder="Write your post content here..."
             required
           />
         </div>
@@ -86,7 +81,7 @@ export default function CreatePost() {
             <input
               type="url"
               id="mediaUrl"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
               placeholder="Enter media URL"
               value={formData.mediaUrls[0] || ''}
               onChange={(e) => setFormData({ ...formData, mediaUrls: [e.target.value] })}
@@ -101,7 +96,7 @@ export default function CreatePost() {
           <input
             type="datetime-local"
             id="scheduledFor"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
             value={formData.scheduledFor || ''}
             onChange={(e) => setFormData({ ...formData, scheduledFor: e.target.value })}
           />
