@@ -20,6 +20,7 @@ export default function CreatePost() {
   const [additionalContext, setAdditionalContext] = useState('');
   const [includeHashtags, setIncludeHashtags] = useState(true);
   const [platform, setPlatform] = useState<'instagram' | 'twitter' | 'facebook' | 'linkedin'>('instagram');
+  const [autoSubmit, setAutoSubmit] = useState(false);
   
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [postContent, setPostContent] = useState('');
@@ -31,6 +32,39 @@ export default function CreatePost() {
   const [activeTab, setActiveTab] = useState<'generate' | 'review'>('generate');
 
   const [apiWarning, setApiWarning] = useState<string | null>(null);
+
+  const createPost = async (content: string) => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: content,
+          mediaUrls: mediaUrl ? [mediaUrl] : [],
+          scheduledFor: scheduledFor || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create post');
+      }
+
+      router.push('/dashboard/posts');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+    return true;
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +108,13 @@ export default function CreatePost() {
           '');
       
       setPostContent(formattedContent);
+      
+      // If auto-submit is enabled, create the post automatically
+      if (autoSubmit) {
+        const success = await createPost(formattedContent);
+        if (success) return;
+      }
+      
       setActiveTab('review');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -84,83 +125,51 @@ export default function CreatePost() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: postContent,
-          mediaUrls: mediaUrl ? [mediaUrl] : [],
-          scheduledFor: scheduledFor || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create post');
-      }
-
-      router.push('/dashboard/posts');
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await createPost(postContent);
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <div className="mb-6">
-        <nav className="flex border-b border-gray-200">
-          <button
-            className={`py-4 px-6 ${
-              activeTab === 'generate'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => setActiveTab('generate')}
-          >
-            1. Generate Content
-          </button>
-          <button
-            className={`py-4 px-6 ${
-              activeTab === 'review'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => generatedContent && setActiveTab('review')}
-            disabled={!generatedContent}
-          >
-            2. Review & Post
-          </button>
-        </nav>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Create New Post</h1>
+        <p className="text-gray-600 mt-1">Generate AI-powered content for your social media posts</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-500 p-4 rounded-lg mb-6">
-          {error}
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div className="border-b border-gray-200">
+          <nav className="flex -mb-px">
+            <button
+              onClick={() => setActiveTab('generate')}
+              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+                activeTab === 'generate'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              1. Generate Content
+            </button>
+            <button
+              onClick={() => setActiveTab('review')}
+              className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${
+                activeTab === 'review'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              disabled={!generatedContent}
+            >
+              2. Review & Post
+            </button>
+          </nav>
         </div>
-      )}
-      
-      {apiWarning && (
-        <div className="bg-yellow-50 text-yellow-700 p-4 rounded-lg mb-6 flex items-start">
-          <svg className="h-5 w-5 text-yellow-400 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          <div>
-            <p className="font-medium">API Configuration Warning</p>
-            <p className="text-sm mt-1">{apiWarning}</p>
-          </div>
-        </div>
-      )}
 
-      {activeTab === 'generate' ? (
+        <div className="p-6">
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 rounded-md border border-red-100">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          {activeTab === 'generate' ? (
         <form onSubmit={handleGenerate} className="space-y-6">
           <div>
             <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
@@ -224,7 +233,7 @@ export default function CreatePost() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.target.value)}
-              placeholder="Who is this content for? (e.g. 'Fitness enthusiasts aged 25-40')"
+              placeholder="Who is this content for? (e.g. 'Young professionals age 25-35')"
             />
           </div>
 
@@ -252,6 +261,19 @@ export default function CreatePost() {
             />
             <label htmlFor="includeHashtags" className="ml-2 block text-sm text-gray-700">
               Include relevant hashtags
+            </label>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              id="autoSubmit"
+              type="checkbox"
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              checked={autoSubmit}
+              onChange={(e) => setAutoSubmit(e.target.checked)}
+            />
+            <label htmlFor="autoSubmit" className="ml-2 block text-sm text-gray-700">
+              Automatically create post after generation
             </label>
           </div>
 
@@ -355,6 +377,8 @@ export default function CreatePost() {
           </div>
         </form>
       )}
+        </div>
+      </div>
     </div>
   );
 } 
