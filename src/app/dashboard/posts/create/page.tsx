@@ -20,7 +20,7 @@ export default function CreatePost() {
   const [additionalContext, setAdditionalContext] = useState('');
   const [includeHashtags, setIncludeHashtags] = useState(true);
   const [platform, setPlatform] = useState<'instagram' | 'twitter' | 'facebook' | 'linkedin'>('instagram');
-  const [autoSubmit, setAutoSubmit] = useState(false);
+  const [autoSubmit, setAutoSubmit] = useState(true);
   
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [postContent, setPostContent] = useState('');
@@ -51,19 +51,27 @@ export default function CreatePost() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create post');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create post');
       }
 
-      router.push('/dashboard/posts');
-      router.refresh();
+      // Successfully created post
+      const postData = await response.json();
+      
+      // Show success message and redirect to posts list after a short delay
+      setError(null);
+      alert('Post created successfully!');
+      setTimeout(() => {
+        router.push('/dashboard/posts');
+      }, 1000);
+      
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Failed to create post');
       return false;
     } finally {
       setIsSubmitting(false);
     }
-    return true;
   };
 
   const handleGenerate = async (e: React.FormEvent) => {

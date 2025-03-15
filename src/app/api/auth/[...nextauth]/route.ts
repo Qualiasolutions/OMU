@@ -1,21 +1,8 @@
-import NextAuth from "next-auth/next";
+import NextAuth from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// Set up NextAuth handler with proper error handling
-export const GET = async (req: Request) => {
-  try {
-    return await NextAuth(authOptions)(req);
-  } catch (error) {
-    console.error("NextAuth GET error:", error);
-    throw error;
-  }
-};
+// Properly setup NextAuth handler for App Router
+const handler = NextAuth(authOptions);
 
-export const POST = async (req: Request) => {
-  try {
-    return await NextAuth(authOptions)(req);
-  } catch (error) {
-    console.error("NextAuth POST error:", error);
-    throw error;
-  }
-}; 
+// Export GET and POST handlers
+export { handler as GET, handler as POST }; 
